@@ -19,7 +19,7 @@ def mex(sn):
         else:
             out =  min(diff)
     return(out)
-n2 =7
+
 # sn序列循环
 def snloop(n2,sn):
     snlist = []
