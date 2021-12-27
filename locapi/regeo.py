@@ -58,21 +58,23 @@ def geo(url,orgid):
     df = df.append({'orgid':orgid,'province':province,'city':city,'adcode':adcode,'district':district,'formatted_address':formatted_address,'location':location},ignore_index=True)
     return df
 
-
-def genbylnglat():
-    file_name = "C:/Users/newor/Downloads/机构表/机构表1.xlsx"
+# 按坐标查找，输入坐标类型：高德/百度
+def genbylnglat(site):
+    file_name = "files/机构.xlsx"
     dfsr = pd.read_excel(file_name, sheet_name='Sheet1')
     dfsr = dfsr[ dfsr['lng'] >100]
-    dfout = pd.DataFrame(columns=('orgid','province','city','adcode','district','formatted_address','location'))
+    dfout = pd.DataFrame(columns=('orgid','province','city','adcode','district'+site,'formatted_address','location'))
     for row in dfsr.itertuples():
         orgid = getattr(row, 'orgid')
-        # 按高德坐标
-        lng = getattr(row, 'lng')
-        lat = getattr(row, 'lat')
-        # 按百度坐标，转高德
-        # lng_bd = getattr(row, 'lng')
-        # lat_bd = getattr(row, 'lat')
-        # (lng,lat) = bd09_to_gcj02(lng_bd,lat_bd)
+        if site == 'gd':
+            # 按高德坐标
+            lng = getattr(row, 'lng')
+            lat = getattr(row, 'lat')
+        else:
+            # 按百度坐标，转高德
+            lng_bd = getattr(row, 'lng')
+            lat_bd = getattr(row, 'lat')
+            (lng,lat) = bd09_to_gcj02(lng_bd,lat_bd)
         url = "https://restapi.amap.com/v3/geocode/regeo?location=%s,%s&output=JSON&key=14158a7cefd90570304ff2f0d4efac0e" % (lng, lat)
         try:
             dfout = dfout.append(regeo(url,orgid),ignore_index=True)
@@ -80,10 +82,10 @@ def genbylnglat():
             pass
             continue
     dfout = pd.merge(dfsr,dfout,on='orgid',how='left')
-    dfout.to_excel('dfout-gd.xlsx')
+    dfout.to_excel('files/dfout-%s.xlsx' % (site))
 
 def genbyaddr():
-    file_name = "C:/Users/newor/Downloads/机构表/机构表.xlsx"
+    file_name = "files/机构.xlsx"
     dfsr = pd.read_excel(file_name, sheet_name='Sheet1')
     dfout = pd.DataFrame(columns=('orgid','province','city','adcode','district','formatted_address'))
     for row in dfsr.itertuples():
@@ -98,7 +100,23 @@ def genbyaddr():
             pass
             continue
     dfout = pd.merge(dfsr,dfout,on='orgid',how='left')
-    dfout.to_excel('dfout-addr.xlsx')
+    dfout.to_excel('files/dfout-addr.xlsx')
 
-genbyaddr()
-
+def mergetabs():
+    dfsradd = pd.read_excel("files/机构表.xlsx", sheet_name='Sheet1')
+    dfsr = pd.read_excel("files/机构.xlsx", sheet_name='Sheet1')
+    dfaddr= pd.read_excel("files/dfout-addr.xlsx", sheet_name='Sheet1')
+    dfbd =  pd.read_excel("files/dfout-bd.xlsx", sheet_name='Sheet1')
+    dfgd=   pd.read_excel("files/dfout-gd.xlsx", sheet_name='Sheet1')
+    dfout0 = pd.merge(dfsr, dfsradd[['orgid','dis_base']],on='orgid', how='left')
+    dfout1 = pd.merge(dfout0, dfaddr[['orgid','district']],on='orgid', how='left')
+    dfout2 = pd.merge(dfout1, dfbd[['orgid','district_bd']], on='orgid', how='left')
+    dfout3 = pd.merge(dfout2, dfgd[['orgid','district_gd']], on='orgid', how='left')
+    dfout3['dislist'] = dfout3['district'] + ',' + dfout3['district_bd'] + ',' + dfout3['district_gd']
+    dfout3['dislist'] = dfout3['dislist'].str.split(',')
+    dfout3['dislist'] = dfout3['dislist'].apply(lambda x: "" if type(x) == float else max(x, key=x.count))
+    dfout3.to_excel('files/dfout-merge.xlsx')
+# genbylnglat('bd')
+# genbylnglat('gd')
+# genbyaddr()
+mergetabs()
